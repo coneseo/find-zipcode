@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="/webjars/jquery/3.3.1-2/jquery.min.js"></script>
+    <link href="/webjars/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/webjars/bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+</head>
+<body>
+    <div class="container">
+        <div class="col" style="border-bottom : 1px solid black; margin :10% 0% 5% 0%;">
+            <h1>우편번호 검색</h1>
+        </div>
+
+        <!-- The Modal -->
+        <div class="modal fade" id="myModal">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <h3 class="modal-title" >검색 결과</h3>
+                        <button type="button" class="close" data-dismiss="modal">×</button>
+                    </div>
+
+                    <!-- Modal body -->
+                    <div class="modal-body ">
+                        <div id="infos">
+                            <ul class="list-group">
+                            </ul>
+
+                            <div id="results"></div>
+                        </div>
+                    </div>
+
+                    <!-- Modal footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
+                    <div class = "text-center">
+                        <nav aria-label="Page navigation example">
+                            <ul class="pagination">
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group" id="search">
+            <input type="text"  class="form-control" placeholder="Search"  id="searchWord" style="width:100px">
+            <button type="button" class="btn btn-default" onclick="searchPostInfo()"><i class="material-icons">
+                search
+            </i></button>
+        </div>
+
+        <div id="address" style="margin-top : 5%">
+            <div id="clickedInfo" >
+                배송지 :
+                <input type="text" class="form-control"id="delivery">
+            </div>
+            <div id="detailInfo">
+                상세주소 :
+                <input type="text" class="form-control" id="detail">
+            </div>
+            <div style="text-align: right">
+                <button type="button" class="btn btn-default"><i class="material-icons">
+                    done_outline
+                </i></button>
+            </div>
+        </div>
+
+
+    </div>
+    <script>
+        $('#search').on('keypress', function(e){
+            if(e.charCode === 13) {
+                e.preventDefault();
+                searchPostInfo();
+            }
+        });
+        function searchPostInfo(page){
+            var sw = $('#searchWord').val();
+            var searchWord= sw.trim();
+            console.log(searchWord);
+            searchWord = searchWord.replace(/ +(?= )/g,'');
+            var pg = page ? page : 1;
+            var pattern = /[`~!@#$%^&*|\\\'\";:\/?]/gi;
+            if(searchWord === "" || searchWord.length < 2 || pattern.test(searchWord)){
+                alert("검색어는 공백이면 안됩니다. 2자 이상어이야 합니다. 특수문자는 포함할 수 없습니다.");
+            }else{
+                $('#myModal').modal('show');
+                $.ajax({
+                    url : "/api/search?searchWord="+searchWord+"&page="+pg,
+                    type : "GET",
+                    success : function(res){
+                        var html = "";
+
+                        var totalCount = res.totalCount;
+                        html += "<div class='col'><p>"
+                            +"총"+ totalCount +"개"+
+                                "</p></div>"
+                        if(pg === 1) {
+                            paging(totalCount, 1);
+                        }
+                        $(res.results).each(
+                            function (index) {
+                                var region;
+
+                                if(this.dongname === null){
+                                    if(this.sigunguBnum === null){
+                                        region = this.sido+" "+this.sigungu+" "+this.roadname+"("+this.eupmyun+" "+this.liname+" "+this.ldongname+")"+" "+this.jibun1;
+                                    }else {
+                                        region = this.sido + " " + this.sigungu + " " + this.roadname + "(" + this.eupmyun + " " + this.liname + " " + this.ldongname + ")" + " " + this.sigunguBnum + " " + this.jibun1;
+                                    }
+                                }else{
+                                    if(this.sigunguBnum === null){
+                                        region = this.sido+" "+this.sigungu+" "+this.roadname+"("+this.dongname+")"+" "+this.jibun1;
+                                    }else{
+                                        region = this.sido+" "+this.sigungu+" "+this.roadname+"("+this.dongname+")"+" "+this.sigunguBnum+" "+this.jibun1;
+                                    }
+                                }
+                                var reg = "\""+region+"\"";
+
+                                html += "<li class='list-group-item'>";
+                                html += "<div class='row'>";
+                                html += "<div class='col' >"
+                                    +this.postNum
+                                html += "</div>"
+                                html += "<div class='col' >"
+                                html += "<a href='javascript:inputInfo("+reg+");'>"+region+"</a>"
+                                html += "</div>"
+                                html += "</div></li>"
+
+                            }
+                        )
+
+                            $("#infos > ul").html(html);
+
+
+                    }
+                });
+            }
+        }
+
+        function paging(totalCount, currentpage){
+            //한번에 보여줄 주소 수량
+            var onePageAmount = 20;
+            //전체 수량
+            var tcount = totalCount;
+            //현재 페이지
+            var cpage = currentpage;
+            //사용자에게 보여줄 페이지의 개수
+            var showingPageAmount = 10;
+            //전체 페이지 수량 = 전체 수량 / 한 페이지마다 보여줄 수량 Math.ceil을 써서 나머지가 있을 경우 페이지를 하나 더 추가
+            var pageCount = Math.ceil(tcount/ onePageAmount);
+            //현재 페이지를 보여줄 페이지 수량으로 나눠서 나머지가 발생할 경우 값을 올려주는 방식으로 현재 구역을 계산
+            var block = Math.ceil(cpage/showingPageAmount);
+            //마지막 구역, 전체 페이지 수량을 보여줄 페이지 개수로 나누어 계산
+            var lastblock = Math.ceil(pageCount/showingPageAmount);
+            //페이지 시작 번호, 현재 구역에서 1을 빼고 보여줄 페이지 수량을 곱한뒤 1을 더해준다.
+            var startnum = (block -1)* showingPageAmount +1;
+            //페이지 끝 번호, 시작 번호에서 보여줄 페이지 수량을 더하고 1을 뺀다.
+            var endnum = startnum + showingPageAmount -1;
+            // 전체 페이지 수량에서 마지막 번호를 뺀 것이 보여줄 페이지 수량보다 적을 시에는 endnum에 pageCount를 넣는다.
+            if(pageCount - endnum < showingPageAmount){
+                endnum = pageCount;
+            }
+
+            var page = "";
+            if(cpage != 1){
+                page += "<a class='page-link' onclick='paging("+tcount+","+cpage+"-10)'><<</a>"
+            }
+
+            for(var i=startnum; i<=endnum; i++){
+                page += "<li class='page-item'><a class='page-link' onclick='searchPostInfo("+i+")'>"+i+"</a></li>"
+            }
+
+            if(block != lastblock){
+                page += "<a class='page-link' onclick='paging("+tcount+","+cpage+"+10)'>>></a>"
+            }
+
+            $(".pagination").html(page);
+        }
+
+        function inputInfo(region){
+            $('#myModal').modal('hide');
+            var reg = region;
+            $('#delivery').val(reg);
+        }
+    </script>
+</body>
+</html>
